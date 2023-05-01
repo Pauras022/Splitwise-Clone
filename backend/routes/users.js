@@ -1,6 +1,7 @@
 // routes/users.js
 const express = require("express");
 const User = require("../models/user");
+const Item = require("../models/item");
 const router = express.Router();
 
 router.get("/", async (req, res) => {
@@ -11,6 +12,13 @@ router.get("/", async (req, res) => {
     console.error(error);
     res.status(500).json({ message: "Server error" });
   }
+});
+
+router.get("/:id/name", async (req, res) => {
+  try {
+    const users = await User.find();
+    res.status(200).json({ name: users.name });
+  } catch {}
 });
 
 router.get("/:id", async (req, res) => {
@@ -28,9 +36,9 @@ router.get("/:id", async (req, res) => {
 
 router.post("/", async (req, res) => {
   try {
-    const user = new User(req.body);
-    await user.save();
-    res.status(201).json(user);
+    const user = new User({ name: req.body.name });
+    const result = await user.save();
+    res.status(201).json({ id: result._id.toString() });
   } catch (error) {
     console.error(error);
     res.status(500).json(error);
@@ -79,7 +87,11 @@ router.post("/:id/friends", async (req, res) => {
     user.friends.push(friendId);
     await user.save();
 
-    res.json(user);
+    const friend = await User.findById(friendId);
+    friend.friends.push(user._id.toString());
+    friend.save();
+
+    res.status(200).json(user);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });
@@ -110,6 +122,20 @@ router.delete("/:id/friends", async (req, res) => {
     await user.save();
 
     res.json(user);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+router.get("/:id/items", async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const user = await User.findById(userId);
+    const expenseIds = user.items;
+    const Expenses = await Item.find({ _id: { $in: expenseIds } });
+    //console.log(Expenses);
+    res.status(200).json(Expenses);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });

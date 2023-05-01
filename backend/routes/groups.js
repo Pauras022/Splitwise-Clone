@@ -4,7 +4,6 @@ const Group = require("../models/group");
 const User = require("../models/user");
 const Item = require("../models/item");
 const router = express.Router();
-const mongoose = require("mongoose");
 
 router.get("/", async (req, res) => {
   try {
@@ -31,9 +30,13 @@ router.get("/:id", async (req, res) => {
 
 router.post("/", async (req, res) => {
   try {
-    const group = new Group(req.body);
-    await group.save();
-    res.status(201).json(group);
+    const group = new Group({ title: req.body.title });
+    group.members.push(req.body.user);
+    const result = await group.save();
+    const user = await User.findById(req.body.userId);
+    user.groups.push(result._id.toString());
+    await user.save();
+    res.status(201).json({ id: result._id.toString() });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });
@@ -49,10 +52,11 @@ router.post("/:id/items", async (req, res) => {
 
     const item = new Item({
       title: req.body.title,
-      owe: new Map(),
+      owe: {},
       groupId: req.params.id,
       paidBy: req.body.paid_by.toString(),
       category: req.body.category,
+      expense: req.body.expense,
     });
     const paid_by = req.body.paid_by;
     const splitType = req.body.split_type;
@@ -119,12 +123,12 @@ router.post("/:id/items", async (req, res) => {
         return res.status(400).json({ message: "Invalid split type" });
     }
 
-    await item.save();
-    group.items.push(item._id.toString());
+    const resultItem = await item.save();
+    group.items.push(resultItem._id.toString());
     group.totalSpendings += req.body.expense;
-    let { memberOwes } = group;
+    const { memberOwes } = group;
     const { owe, paidBy } = item;
-    console.log(owe[paidBy]);
+    //console.log(owe[paidBy]);
     members.forEach((userId) => {
       // Update the amount owed for each member in the group based on the item
       members.forEach((otherMemberId) => {
@@ -134,25 +138,41 @@ router.post("/:id/items", async (req, res) => {
           otherMemberId == paidBy
         ) {
           //console.log(owe[userId]);
-          if (memberOwes[userId] === undefined) memberOwes[userId] = new Map();
-          if (memberOwes[otherMemberId] === undefined)
-            memberOwes[otherMemberId] = new Map();
-
-          memberOwes[userId][otherMemberId] += owe[userId];
-          memberOwes[otherMemberId][userId] -= owe[userId];
+          if (memberOwes[userId] === undefined) {
+            memberOwes[userId] = {};
+            memberOwes[userId][otherMemberId] = owe[userId];
+          } else {
+            if (memberOwes[userId][otherMemberId] != undefined) {
+              memberOwes[userId][otherMemberId] += owe[userId];
+            } else {
+              memberOwes[userId][otherMemberId] = owe[userId];
+            }
+          }
+          if (memberOwes[otherMemberId] === undefined) {
+            memberOwes[otherMemberId] = {};
+            memberOwes[otherMemberId][userId] = owe[userId];
+          } else {
+            if (memberOwes[otherMemberId][userId] != undefined) {
+              memberOwes[otherMemberId][userId] -= owe[userId];
+            } else {
+              memberOwes[otherMemberId][userId] = -owe[userId];
+            }
+          }
         }
       });
     });
-
+    //console.log(memberOwes);
+    group.memberOwes = memberOwes;
+    console.log(group.memberOwes);
     await group.save();
     //find all users in the group
-    const users = await group.members;
-    //add category number to each of the members
+    const users = group.members;
+    //add item id to each of the members
     const updatedUsers = await User.find({ _id: { $in: users } });
     updatedUsers.forEach(async (user) => {
-      user.itemtypes.push(req.body.category);
+      user.items.push(resultItem._id.toString());
       await user.save();
-      console.log(`Updated user: ${user.name}`);
+      //console.log(`Updated user: ${user.name}`);
     });
 
     const paidbyuser = await User.findById(req.body.paid_by);
@@ -187,9 +207,12 @@ router.post("/:groupId/members", async (req, res) => {
 
     // Add the member to the group
     group.members.push(memberId);
-    await group.save();
+    resultgroup = await group.save();
+    const member = await User.findById(memberId);
+    member.groups.push(resultgroup._id.toString());
+    await member.save();
 
-    res.json(group);
+    res.status(200).json(group);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });
@@ -203,12 +226,7 @@ router.post("/:id/settle-up", async (req, res) => {
 
     // Retrieve group from database
     const group = await Group.findById(groupId);
-    if (group.memberOwes[payerId] == null) {
-      group.memberOwes[payerId] = new Map();
-    }
-    if (group.memberOwes[receiverId] == null) {
-      group.memberOwes[receiverId] = new Map();
-    }
+
     // Update memberowes in the group
     group.memberOwes[payerId][receiverId] -= amount;
     group.memberOwes[receiverId][payerId] += amount;
@@ -242,7 +260,10 @@ router.get("/:id/items", async (req, res) => {
   try {
     const group = await Group.findById(req.params.id);
     const items = await Promise.all(
-      group.items.map(async (itemId) => Item.findById(itemId))
+      group.items.map(async (itemId) => {
+        const i = await Item.findById(itemId);
+        return i;
+      })
     );
     if (!items) {
       return res.status(404).json({ message: "Items not found" });

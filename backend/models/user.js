@@ -8,22 +8,23 @@ const userSchema = new Schema({
   },
   friends: [
     {
-      type: [String],
+      type: String,
     },
   ],
   groups: [
     {
-      type: [String],
+      type: String,
     },
   ],
   totalSpendings: {
     type: Number,
     default: 0,
   },
-  itemtypes: {
-    type: [Number],
-    default: [],
-  },
+  items: [
+    {
+      type: String,
+    },
+  ],
 });
 
 const User = mongoose.model("User", userSchema);

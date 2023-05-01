@@ -8,12 +8,12 @@ const groupSchema = new Schema({
   },
   members: [
     {
-      type: [String],
+      type: String,
     },
   ],
   items: [
     {
-      type: [String],
+      type: String,
     },
   ],
   totalSpendings: {
@@ -21,9 +21,11 @@ const groupSchema = new Schema({
     default: 0,
   },
   memberOwes: {
-    type: Map,
-    of: Map,
-    default: new Map().set("", new Map().set("", 0)),
+    // type: Map,
+    // of: Map,
+    // default: new Map().set("", new Map().set("", 0)),
+    type: Schema.Types.Mixed,
+    default: {},
   },
 });
 

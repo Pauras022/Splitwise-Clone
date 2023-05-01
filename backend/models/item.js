@@ -15,10 +15,17 @@ const itemSchema = new Schema({
     type: String,
   },
   owe: {
-    type: Map,
-    of: Number,
+    // type: Map,
+    // of: Number,
+    // required: true,
+    // default: new Map().set("", 0),
+    type: Schema.Types.Mixed,
     required: true,
-    default: new Map().set("", 0),
+    default: {},
+  },
+  expense: {
+    type: Number,
+    required: true,
   },
   groupId: {
     type: String,

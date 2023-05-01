@@ -1,0 +1,4 @@
+{
+  "appService.defaultWebAppToDeploy": "undefined/subscriptions/04c12ba2-34a1-43d1-957d-aa2f4eba96fb/resourceGroups/appsvc_linux_centralus/providers/Microsoft.Web/sites/PLL-splitwise-app",
+  "appService.deploySubpath": "."
+}
